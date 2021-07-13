@@ -67,10 +67,15 @@ the nil become \\hline"
 			 :direction :output
 			 :if-exists :supersede)
       (apply #'print-programs (cons out programs)))
-    (system "ptex2pdf -l cl-latex.tex")
-    (uiop:copy-file
-     (uiop:merge-pathnames* "cl-latex.pdf" (uiop:getcwd))
-     (uiop:merge-pathnames* output-file-name back-directory))))
+    (multiple-value-bind
+	  (result tmp code)
+	(system "ptex2pdf -l cl-latex.tex")
+      (cond ((not (eq code 0))
+	     (format t "~a~%" result))
+	    (t
+	     (uiop:copy-file
+	      (uiop:merge-pathnames* "cl-latex.pdf" (uiop:getcwd))
+	      (uiop:merge-pathnames* output-file-name back-directory)))))))
 
 (defun example (output-pdf-name)
   (make-pdf-from-latex
