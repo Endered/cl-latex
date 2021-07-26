@@ -13,7 +13,10 @@
    :itemize
    :print-programs
    :example
-   :make-pdf-from-latex))
+   :make-pdf-from-latex
+   :make-formula
+   :need-package
+   :$))
 
 (in-package :cl-latex)
 
@@ -29,6 +32,10 @@
 (defun make-title ()
   "generate '\\maketitle'"
   (format nil "\\maketitle"))
+(defun need-package (package &optional (option nil))
+  (format nil "\\usepackage~a{~{~a~^,~}}"
+	  (if option (format nil "[~a]" option) "")
+	  (castlist package)))
 
 (defun document (&rest exprs)
   "generate \\begin{document} 'expand exprs' \\end{document}"
@@ -76,6 +83,98 @@ the nil become \\hline"
 	     (uiop:copy-file
 	      (uiop:merge-pathnames* "cl-latex.pdf" (uiop:getcwd))
 	      (uiop:merge-pathnames* output-file-name back-directory)))))))
+
+(defun renewcommand (origin next)
+  (format nil "\\renewcommand{~a}{~a}" origin next))
+
+(defun $ (expr)
+  (format nil "$~a$" (make-formula expr)))
+
+(defun make-formula (expr)
+  (labels ((bra (form priority)
+	     (if (> (cdr form) priority)
+		 (format nil "(~a)" (car form))
+		 (car form)))
+	   (bras (lst priority)
+	     (mapcar (lambda (form) (bra form priority)) lst))
+	   (eq-symbol (a b)
+	     (string= (symbol-name a) (symbol-name b)))
+	   (eq-symbols (lst b)
+	     (some (lambda (a) (eq-symbol a b)) lst))
+	   (rec (expr)
+	     (cond ((atom expr)
+		    (cons (format nil "~a" expr) 0))
+		   ((eq-symbol '+ (car expr))
+		    (cons (format nil "~{~a~^ + ~}"
+				  (bras (mapcar #'rec (cdr expr))
+					2))
+			  2))
+		   ((eq-symbol '- (car expr))
+		    (cons (format nil "~{~a~^ - ~}"
+				  (bras (mapcar #'rec (cdr expr))
+					2))
+			  2))
+		   ((eq-symbol '* (car expr))
+		    (cons (format nil "~{~a~^ \\times ~}"
+				  (bras (mapcar #'rec (cdr expr))
+					1))
+			  1))
+		   ((eq-symbol '/ (car expr))
+		    (cons (if (eq 2 (length expr))
+			      (format nil "\\frac{1}{~a}"
+				      (bra (rec (cadr expr)) 2))
+			      (format nil "\\frac{~a}{~a}"
+				      (bra (rec (cadr expr)) 2)
+				      (bra (rec (cons '* (cddr expr))) 2)))
+			  1))
+		   ((eq-symbols '(_ under) (car expr))
+		    (cons (format nil "~a_{~a}"
+				  (bra (rec (cadr expr)) 0)
+				  (bra (rec (caddr expr)) 100))
+			  0))
+		   ((eq-symbols '(^ expt) (car expr))
+		    (cons (format nil "~a^{~a}"
+				  (bra (rec (cadr expr)) 0)
+				  (bra (rec (caddr expr)) 100))
+			  0))
+		   ((eq-symbol 'sqrt (car expr))
+		    (cons (format nil "\\sqrt{~a}"
+				  (bra (rec (cadr expr)) 100))
+			  0))
+		   ((eq-symbol 'set (car expr))
+		    (cons (if (eq 2 (length expr))
+			      (format nil "\\left\\{~a\\right\\}"
+				      (bra (rec (cadr expr)) 100))
+			      (format nil "\\left\\{~a|~{~a~^,~}\\right\\}"
+				      (bra (rec (cadr expr)) 100)
+				      (bras (mapcar #'rec (cddr expr))
+					    100)))
+			  0))
+		   ((eq-symbols '(eq =) (car expr))
+		    (cons (format nil "~{~a~^ = ~}"
+				  (bras (mapcar #'rec (cdr expr))
+					100))
+			  0))
+		   ((eq-symbol 'funcall (car expr))
+		    (cons (format nil "~a\\left(~{~a~^, ~}\\right)"
+				  (bra (rec (cadr expr)) 0)
+				  (bras (mapcar #'rec (cddr expr))
+					100))
+			  0))
+		   ((eq-symbol 'command (car expr))
+		    (cons (format nil "~a{~{~a~^, ~}}"
+				  (bra (rec (cadr expr)) 100)
+				  (bras (mapcar #'rec (cddr expr))
+					100))
+			  0))
+		   ((eq-symbol 'cat (car expr))
+		    (cons (format nil "~{~a~^ ~}"
+				  (bras (mapcar #'rec (cdr expr))
+					100))
+			  0))
+		   (t
+		    (error "There are no symbol")))))
+    (car (rec expr))))
 
 (defun example (output-pdf-name)
   (make-pdf-from-latex

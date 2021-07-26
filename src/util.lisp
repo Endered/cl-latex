@@ -4,7 +4,8 @@
    :with-tempolary-directory
    :system
    :back-directory
-   :with-move-directory))
+   :with-move-directory
+   :castlist))
 
 (in-package :util)
 
@@ -34,3 +35,7 @@
 
 (defun system (cmd)
   (trivial-shell:shell-command cmd))
+(defun castlist (x)
+  (if (listp x)
+      x
+      (list x)))
