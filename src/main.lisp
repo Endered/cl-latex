@@ -102,7 +102,10 @@ the nil become \\hline"
 	   (eq-symbols (lst b)
 	     (some (lambda (a) (eq-symbol a b)) lst))
 	   (rec (expr)
-	     (cond ((atom expr)
+	     (cond ((symbolp expr)
+		    (cons (string-downcase (princ-to-string expr))
+			  0))
+		   ((atom expr)
 		    (cons (format nil "~a" expr) 0))
 		   ((eq-symbol '+ (car expr))
 		    (cons (format nil "~{~a~^ + ~}"
@@ -162,7 +165,7 @@ the nil become \\hline"
 					100))
 			  0))
 		   ((eq-symbol 'command (car expr))
-		    (cons (format nil "~a{~{~a~^, ~}}"
+		    (cons (format nil "~a~{{~a}~}"
 				  (bra (rec (cadr expr)) 100)
 				  (bras (mapcar #'rec (cddr expr))
 					100))
