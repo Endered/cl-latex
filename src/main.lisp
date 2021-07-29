@@ -4,6 +4,7 @@
    :latex-head
    :author
    :title
+   :command
    :make-title
    :document
    :section
@@ -16,12 +17,23 @@
    :make-pdf-from-latex
    :make-formula
    :need-package
+   :listing-file
    :$))
 
 (in-package :cl-latex)
 
 (defun latex-head ()
   (format nil "\\documentclass[]{jsarticle}")) 
+
+(defun lowercase-name (princable)
+  (string-downcase (princ-to-string princable)))
+
+(defun command (command &rest args)
+  (format nil "\\~a~{{~{~a~^, ~}}~}"
+	  (lowercase-name command)
+	  (mapcar (lambda (list)
+		    (mapcar #'lowercase-name list))
+		  (mapcar #'castlist args))))
 
 (defun author (name)
   "generate '\\author{name}'"
@@ -39,7 +51,7 @@
 
 (defun document (&rest exprs)
   "generate \\begin{document} 'expand exprs' \\end{document}"
-  (format nil "\\begin{document}~%~{~a~%~}\\end{document}"  exprs))
+  (format nil "\\begin{document}~%~{~a~%~}\\end{document}"  (flat-list exprs)))
 
 (defun section (&optional (name ""))
   (format nil "\\section{~a}" name))
@@ -65,7 +77,13 @@ the nil become \\hline"
   (format nil "\\begin{itemize}~%~{\\item ~a~%~}\\end{itemize}" items))
 
 (defun print-programs (output-stream &rest programs)
-  (format output-stream "~{~a~%~}" programs))
+  (labels ((rec (value)
+	     (cond ((stringp value)
+		    (format output-stream "~a~%" value))
+		   ((consp value)
+		    (mapc #'rec value))
+		   (t (error "print-programs: error")))))
+    (rec programs)))
 
 (defun make-pdf-from-latex (output-file-name &rest programs)
   (with-tempolary-directory
@@ -89,6 +107,19 @@ the nil become \\hline"
 
 (defun $ (expr)
   (format nil "$~a$" (make-formula expr)))
+
+(defun include (filename)
+  (unless (uiop:probe-file* filename)
+    (return-from include nil))
+  (with-open-file (in filename :direction :input)
+    (loop for line = (read-line in nil nil)
+	  while line
+	  collect line)))
+
+(defun listing-file (filename)
+  `("\\begin{lstlisting}"
+    ,@ (include filename)
+    "\\end{lstlisting}"))
 
 (defun make-formula (expr)
   (labels ((bra (form priority)

@@ -5,7 +5,8 @@
    :system
    :back-directory
    :with-move-directory
-   :castlist))
+   :castlist
+   :flat-list))
 
 (in-package :util)
 
@@ -39,3 +40,12 @@
   (if (listp x)
       x
       (list x)))
+
+(defun flat-list (list)
+  (let ((res nil))
+    (labels ((rec (lst)
+	       (if (consp lst)
+		   (mapc #'rec lst)
+		   (push lst res))))
+      (rec list)
+      (reverse res))))
